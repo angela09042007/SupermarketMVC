@@ -1,6 +1,6 @@
 const Users = require('../models/users');
 
-const authController = {
+const userController = {
     showRegister(req, res) {
         return res.render('register', { messages: req.flash('error'), formData: req.flash('formData')[0] });
     },
@@ -56,4 +56,4 @@ const authController = {
     }
 };
 
-module.exports = authController;
+module.exports = userController;

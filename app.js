@@ -3,7 +3,7 @@ const session = require('express-session');
 const flash = require('connect-flash');
 const multer = require('multer');
 const { checkAuthenticated, checkAdmin, validateRegistration } = require('./middleware');
-const authController = require('./controllers/authController');
+const userController = require('./controllers/userController');
 const productController = require('./controllers/productController');
 const cartController = require('./controllers/cartController');
 const orderController = require('./controllers/orderController');
@@ -56,11 +56,11 @@ app.get('/',  (req, res) => {
 });
 
 // Auth
-app.get('/register', authController.showRegister);
-app.post('/register', validateRegistration, authController.register);
-app.get('/login', authController.showLogin);
-app.post('/login', authController.login);
-app.get('/logout', authController.logout);
+app.get('/register', userController.showRegister);
+app.post('/register', validateRegistration, userController.register);
+app.get('/login', userController.showLogin);
+app.post('/login', userController.login);
+app.get('/logout', userController.logout);
 
 // Product search + lists
 app.get('/search', checkAuthenticated, productController.search);
