@@ -59,9 +59,22 @@
           </table>
         </div>
 
-        <div class="d-flex flex-wrap justify-content-between align-items-center mt-3">
-          <h4 class="mb-2 mb-md-0">Total: $<%= total.toFixed(2) %></h4>
+        <div class="d-flex flex-wrap justify-content-between align-items-start mt-3 gap-3">
+          <div>
+            <form id="promo-form" class="d-flex flex-wrap gap-2 align-items-center">
+              <input type="hidden" id="cart-subtotal" value="<%= total.toFixed(2) %>">
+              <input type="text" name="promoCode" id="promoCode" placeholder="Promo code" class="form-control" style="width:200px;">
+              <button type="submit" class="btn btn-outline-info">Apply Code</button>
+            </form>
+            <div id="promo-result" class="mt-2 small text-muted"></div>
+            <div id="promo-totals" class="mt-2">
+              <div>Subtotal: $<span id="promo-subtotal"><%= total.toFixed(2) %></span></div>
+              <div>Discount: $<span id="promo-discount">0.00</span></div>
+              <div><strong>Total: $<span id="promo-total"><%= total.toFixed(2) %></span></strong></div>
+            </div>
+          </div>
           <div class="d-flex flex-wrap gap-2">
+            <h4 class="mb-2 mb-md-0 align-self-center">Total: $<%= total.toFixed(2) %></h4>
             <form action="/cart/clear" method="POST" class="d-inline">
               <button type="submit" class="btn btn-light">Clear Cart</button>
             </form>
@@ -75,3 +88,35 @@
   </div>
 
 <%- include('partials/footer') %>
+
+<script>
+  const form = document.getElementById('promo-form');
+  if (form) {
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const code = document.getElementById('promoCode').value;
+      const subtotal = document.getElementById('cart-subtotal').value;
+      const resultEl = document.getElementById('promo-result');
+      resultEl.textContent = 'Applying...';
+      try {
+        const res = await fetch('/cart/apply-code', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: new URLSearchParams({ promoCode: code, subtotal })
+        });
+        const data = await res.json();
+        if (!data.success) {
+          resultEl.textContent = data.message || 'Invalid code.';
+          document.getElementById('promo-discount').textContent = '0.00';
+          document.getElementById('promo-total').textContent = parseFloat(subtotal).toFixed(2);
+          return;
+        }
+        resultEl.textContent = data.message;
+        document.getElementById('promo-discount').textContent = Number(data.discount).toFixed(2);
+        document.getElementById('promo-total').textContent = Number(data.total).toFixed(2);
+      } catch (err) {
+        resultEl.textContent = 'Error applying code.';
+      }
+    });
+  }
+</script>
