@@ -22,7 +22,7 @@ const storage = multer.diskStorage({
 
 const upload = multer({ storage: storage });
 
-// Set up view engine mkjkmj
+// Set up view engine 
 app.set('view engine', 'ejs');
 //  enable static files
 app.use(express.static('public'));
