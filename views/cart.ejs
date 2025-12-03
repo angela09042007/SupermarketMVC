@@ -1,0 +1,77 @@
+<%- include('partials/header', { title: 'Your Cart' }) %>
+<%- include('partials/navbar', { user: locals.user }) %>
+
+  <div class="container">
+    <div class="content-card">
+      <div class="section-heading mb-3">
+        <div>
+          <p class="eyebrow mb-1">Cart</p>
+          <h2 class="mb-0">Your picks</h2>
+        </div>
+        <a href="/shopping" class="btn btn-light btn-sm">Back to shopping</a>
+      </div>
+
+      <% if (messages && messages.length) { %>
+        <div class="alert alert-success"><%= messages[0] %></div>
+      <% } %>
+      <% if (errors && errors.length) { %>
+        <div class="alert alert-danger"><%= errors[0] %></div>
+      <% } %>
+
+      <% if (cart.length === 0) { %>
+        <div class="empty-state">Your cart is empty.</div>
+      <% } else { %>
+        <div class="table-responsive table-card">
+          <table class="table table-striped align-middle mb-0">
+            <thead>
+              <tr>
+                <th>Product</th>
+                <th>Image</th>
+                <th>Price</th>
+                <th>Quantity</th>
+                <th>Total</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              <% let total = 0; %>
+              <% for (let i = 0; i < cart.length; i++) { %>
+                <tr>
+                    <td><%= cart[i].productName %></td>
+                    <td><img src="/images/<%= cart[i].image %>" width="80" class="img-thumbnail"></td>
+                    <td>$<%= cart[i].price.toFixed(2) %></td>
+                    <td>
+                      <form action="/cart/update/<%= cart[i].id %>" method="POST" class="d-flex align-items-center gap-2">
+                        <input type="number" name="quantity" value="<%= cart[i].quantity %>" min="1" class="form-control form-control-sm" style="width: 90px;">
+                        <button type="submit" class="btn btn-sm btn-primary">Update</button>
+                      </form>
+                    </td>
+                    <td>$<%= (cart[i].price * cart[i].quantity).toFixed(2) %></td>
+                    <td>
+                      <form action="/cart/remove/<%= cart[i].id %>" method="POST">
+                        <button type="submit" class="btn btn-sm btn-outline-danger">Remove</button>
+                      </form>
+                    </td>
+                </tr>
+                <% total += cart[i].price * cart[i].quantity; %>
+              <% }; %>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="d-flex flex-wrap justify-content-between align-items-center mt-3">
+          <h4 class="mb-2 mb-md-0">Total: $<%= total.toFixed(2) %></h4>
+          <div class="d-flex flex-wrap gap-2">
+            <form action="/cart/clear" method="POST" class="d-inline">
+              <button type="submit" class="btn btn-light">Clear Cart</button>
+            </form>
+            <form action="/cart/checkout" method="POST" class="d-inline">
+              <button type="submit" class="btn btn-primary">Checkout</button>
+            </form>
+          </div>
+        </div>
+      <% } %>
+    </div>
+  </div>
+
+<%- include('partials/footer') %>

@@ -1,0 +1,56 @@
+<%- include('partials/header', { title: 'Supermarket App' }) %>
+<%- include('partials/navbar', { user: locals.user }) %>
+
+  <!-- Main content -->
+  <div class="container mt-4">
+    <div class="content-card auth-card">
+      <div class="section-heading mb-2">
+        <div>
+          <p class="eyebrow mb-1">Inventory</p>
+          <h2 class="mb-1">Update product</h2>
+          <p class="muted mb-0">Keep listings tidy with clear labels and previews.</p>
+        </div>
+        <span class="chip">Admin</span>
+      </div>
+      
+      <% if (product) { %>
+        <form action="/updateProduct/<%= product.id %>" method="POST" enctype="multipart/form-data" class="mt-3">
+          
+          <div class="mb-3">
+            <label for="name" class="form-label">Product Name</label>
+            <input type="text" class="form-control" id="name" name="name" value="<%= product.productName %>" required>
+          </div>
+
+          <div class="mb-3">
+            <label for="quantity" class="form-label">Quantity</label>
+            <input type="number" class="form-control" id="quantity" name="quantity" min="0" step="1" value="<%= product.quantity %>" required>
+          </div>
+
+          <div class="mb-3">
+            <label for="price" class="form-label">Price</label>
+            <input type="number" class="form-control" id="price" name="price" min="0" step="0.01" value="<%= product.price %>" required>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label">Current Image</label>
+            <input type="text" class="form-control" name="currentImage" value="<%= product.image %>" readonly>
+            <img src="/images/<%= product.image %>" class="img-thumbnail mt-2" style="width: 150px;">
+          </div>
+
+          <div class="mb-4">
+            <label for="image" class="form-label">Upload New Image</label>
+            <input class="form-control" type="file" id="image" name="image" accept="image/*">
+          </div>
+
+          <div class="d-grid gap-2">
+            <button type="submit" class="btn btn-primary">Update Product</button>
+            <a href="/inventory" class="btn btn-light">Back to Inventory</a>
+          </div>
+        </form>
+      <% } else { %>
+        <div class="empty-state">No product found.</div>
+      <% } %>
+    </div>
+  </div>
+
+<%- include('partials/footer') %>

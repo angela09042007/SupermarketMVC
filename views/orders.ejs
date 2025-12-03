@@ -1,0 +1,80 @@
+<%- include('partials/header', { title: 'My Orders' }) %>
+<%- include('partials/navbar', { user: locals.user }) %>
+
+<div class="container">
+    <div class="content-card">
+        <header class="mb-3 section-heading">
+            <div>
+                <p class="eyebrow mb-1">Orders</p>
+                <h2 class="mb-0"><%= user && user.role === 'admin' ? 'All orders' : 'My orders' %></h2>
+            </div>
+            <a href="/shopping" class="btn btn-light btn-sm">Back to shopping</a>
+        </header>
+
+        <%- include('partials/search', { action: '/orders', placeholder: 'Search orders or products...', searchTerm: (typeof searchTerm !== 'undefined' ? searchTerm : '') }) %>
+
+        <% if (errors && errors.length) { %>
+            <div class="alert alert-danger">
+                <% errors.forEach(function(err){ %><p class="mb-0"><%= err %></p><% }); %>
+            </div>
+        <% } %>
+        <% if (messages && messages.length) { %>
+            <div class="alert alert-success">
+                <% messages.forEach(function(msg){ %><p class="mb-0"><%= msg %></p><% }); %>
+            </div>
+        <% } %>
+
+        <% if (!orders || orders.length === 0) { %>
+            <div class="empty-state">No orders found.</div>
+        <% } else { %>
+            <div class="d-flex flex-column gap-3">
+                <% orders.forEach(function(order){ %>
+                    <section class="surface" id="order-<%= order.id %>">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <h5 class="mb-0">Order #<%= order.id %></h5>
+                            <span class="muted small"><%= new Date(order.createdAt).toLocaleString() %></span>
+                        </div>
+                        <% if (user && user.role === 'admin') { %>
+                            <p class="text-muted mb-3 small">User ID: <%= order.userId %></p>
+                        <% } %>
+                        <div class="table-responsive">
+                            <table class="table table-striped align-middle mb-2">
+                                <thead>
+                                    <tr>
+                                        <th>Product</th>
+                                        <th>Qty</th>
+                                        <th>Price</th>
+                                        <th>Subtotal</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <% order.items.forEach(function(item){ %>
+                                        <tr>
+                                            <td>
+                                                <% if (item.image) { %>
+                                                    <img src="/images/<%= item.image %>" alt="<%= item.productName %>" style="height:30px;vertical-align:middle;margin-right:8px;">
+                                                <% } %>
+                                                <%= item.productName %>
+                                            </td>
+                                            <td><%= item.quantity %></td>
+                                            <td>$<%= item.price.toFixed(2) %></td>
+                                            <td>$<%= (item.price * item.quantity).toFixed(2) %></td>
+                                        </tr>
+                                    <% }); %>
+                                </tbody>
+                                <tfoot>
+                                    <tr>
+                                        <th colspan="3" class="text-end">Total</th>
+                                        <th>$<%= order.total.toFixed(2) %></th>
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        </div>
+                    </section>
+                <% }); %>
+            </div>
+        <% } %>
+    </div>
+</div>
+
+<%- include('partials/footer') %>

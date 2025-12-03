@@ -1,0 +1,37 @@
+<%- include('partials/header', { title: 'Supermarket App' }) %>
+<%- include('partials/navbar', { user }) %>
+
+<div class="container">
+  <div class="content-card hero hero-visual">
+    <div class="hero-content">
+      <p class="eyebrow mb-2">Supermarket</p>
+      <form class="search-bar" action="/search" method="GET">
+        <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="11" cy="11" r="7"></circle>
+          <line x1="16.65" y1="16.65" x2="21" y2="21"></line>
+        </svg>
+        <input type="text" name="q" placeholder="Search for groceries..." aria-label="Search for groceries">
+        <button class="btn btn-primary btn-sm px-3" type="submit">Search</button>
+      </form>
+      <h1 class="mb-4">Your everyday supermarket app for easy shopping, fresh deals, and fast checkout.</h1>
+
+      <div class="d-flex flex-wrap gap-2 hero-actions">
+        <% if (user) { %>
+          <% if (user.role === "admin") { %>
+            <a class="btn btn-primary" href="/inventory">Manage inventory</a>
+            <a class="btn btn-light" href="/addProduct">Add product</a>
+          <% } else { %>
+            <a class="btn btn-primary" href="/shopping">Continue shopping</a>
+            <a class="btn btn-light" href="/orders">View orders</a>
+          <% } %>
+        <% } else { %>
+          <a class="btn btn-primary" href="/login">Login</a>
+          <a class="btn btn-light" href="/register">Create account</a>
+        <% } %>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<%- include('partials/footer') %>

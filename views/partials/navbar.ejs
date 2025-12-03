@@ -1,0 +1,60 @@
+<nav class="navbar navbar-expand-lg navbar-light soft-nav shadow-sm mb-4">
+  <div class="container">
+    <div class="d-flex align-items-center gap-2">
+      <div class="brand-pill">SM</div>
+      <a class="navbar-brand fw-bold" href="/">Supermarket</a>
+    </div>
+
+    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#collapsibleNavbar" aria-label="Toggle navigation">
+      <span class="navbar-toggler-icon"></span>
+    </button>
+
+    <div class="collapse navbar-collapse" id="collapsibleNavbar">
+      <ul class="navbar-nav me-auto mb-2 mb-lg-0 gap-lg-1">
+        <li class="nav-item">
+          <a class="nav-link rounded-pill" href="/">Home</a>
+        </li>
+        <% if (user) { %>
+          <% if (user.role === 'admin') { %>
+            <li class="nav-item">
+              <a class="nav-link rounded-pill" href="/inventory">Inventory</a>
+            </li>
+          <% } else { %>
+            <li class="nav-item">
+              <a class="nav-link rounded-pill" href="/shopping">Shop</a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link rounded-pill" href="/cart">Cart</a>
+            </li>
+          <% } %>
+          <li class="nav-item">
+            <a class="nav-link rounded-pill" href="/orders">Orders</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link rounded-pill" href="/logout">Logout</a>
+          </li>
+        <% } else { %>
+          <li class="nav-item">
+            <a class="nav-link rounded-pill" href="/register">Register</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link rounded-pill" href="/login">Login</a>
+          </li>
+        <% } %>
+      </ul>
+
+      <% if (user) { %>
+        <div class="d-flex align-items-center gap-3">
+          <div class="user-chip">
+            <span class="user-dot"></span>
+            <div>
+              <div class="small text-muted">Signed in</div>
+              <strong><%= user.username %></strong> • <%= user.role %>
+            </div>
+          </div>
+        </div>
+      <% } %>
+    </div>
+  </div>
+</nav>
+<%- include('./alerts') %>

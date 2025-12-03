@@ -1,0 +1,80 @@
+<%- include('partials/header', { title: 'Invoice' }) %>
+<%- include('partials/navbar', { user: locals.user }) %>
+
+<div class="container">
+    <div class="content-card">
+        <header class="mb-3 section-heading">
+            <div>
+                <p class="eyebrow mb-1">Invoice</p>
+                <h2 class="mb-1">Purchase summary</h2>
+                <% if (invoice && invoice.purchasedAt) { %>
+                    <p class="muted mb-0">Date: <%= new Date(invoice.purchasedAt).toLocaleString() %></p>
+                <% } %>
+            </div>
+            <a href="/shopping" class="btn btn-light btn-sm">Back to shopping</a>
+        </header>
+
+        <% if (user) { %>
+            <div class="surface mb-3">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <p class="mb-0 fw-semibold"><%= user.username %></p>
+                        <p class="muted mb-0"><%= user.email %></p>
+                    </div>
+                    <span class="chip">Customer</span>
+                </div>
+            </div>
+        <% } %>
+
+        <% if (errors && errors.length) { %>
+            <div class="alert alert-danger">
+                <% errors.forEach(function(err){ %>
+                    <p class="mb-0"><%= err %></p>
+                <% }); %>
+            </div>
+        <% } %>
+        <% if (messages && messages.length) { %>
+            <div class="alert alert-success">
+                <% messages.forEach(function(msg){ %>
+                    <p class="mb-0"><%= msg %></p>
+                <% }); %>
+            </div>
+        <% } %>
+
+        <section class="table-responsive table-card mt-3">
+            <table class="table table-striped align-middle mb-0">
+                <thead>
+                    <tr>
+                        <th>Product</th>
+                        <th>Quantity</th>
+                        <th>Price</th>
+                        <th>Subtotal</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <% invoice.items.forEach(function(item){ %>
+                        <tr>
+                            <td>
+                                <% if (item.image) { %>
+                                    <img src="/images/<%= item.image %>" alt="<%= item.productName %>" style="height:40px;vertical-align:middle;margin-right:10px;">
+                                <% } %>
+                                <%= item.productName %>
+                            </td>
+                            <td><%= item.quantity %></td>
+                            <td>$<%= Number(item.price).toFixed(2) %></td>
+                            <td>$<%= Number(item.subtotal).toFixed(2) %></td>
+                        </tr>
+                    <% }); %>
+                </tbody>
+                <tfoot>
+                    <tr>
+                        <th colspan="3" class="text-end">Total:</th>
+                        <th>$<%= invoice.total.toFixed(2) %></th>
+                    </tr>
+                </tfoot>
+            </table>
+        </section>
+    </div>
+</div>
+
+<%- include('partials/footer') %>

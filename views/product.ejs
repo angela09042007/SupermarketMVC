@@ -1,0 +1,50 @@
+<!-- product.ejs -->
+
+<%- include('partials/header', { title: 'Supermarket App' }) %>
+<%- include('partials/navbar', { user: locals.user }) %>
+
+    <div class="container">
+        <div class="content-card">
+            <div class="section-heading mb-3">
+                <div>
+                    <p class="eyebrow mb-1">Product</p>
+                    <h2 class="mb-0">Details</h2>
+                </div>
+                <span class="chip"><%= user.role %></span>
+            </div>
+
+            <% if (product) { %>
+                <div class="row g-4 align-items-center">
+                    <div class="col-md-5 text-center">
+                        <img class="product-image shadow-sm" src="/images/<%= product.image %>" alt="<%= product.productName %>">
+                    </div>
+                    <div class="col-md-7">
+                        <h3 class="fw-bold mb-2"><%= product.productName %></h3>
+                        <p class="muted mb-3">Available stock: <strong><%= product.quantity %></strong></p>
+                        <div class="surface mb-3">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <span class="muted">Price</span>
+                                <span class="fs-4 fw-bold">$<%= product.price.toFixed(2) %></span>
+                            </div>
+                        </div>
+                        <div class="d-flex flex-wrap gap-2">
+                            <% if (user.role === "admin") { %>
+                                <a href="/updateProduct/<%= product.id %>" class="btn btn-primary">Edit product</a>
+                                <a href="/inventory" class="btn btn-light">Back to inventory</a>
+                            <% } else { %>
+                                <form action="/add-to-cart/<%= product.id %>" method="POST" class="d-flex gap-2 align-items-center">
+                                    <input type="number" name="quantity" value="1" min="1" class="form-control" style="width:110px;">
+                                    <button type="submit" class="btn btn-primary">Add to Cart</button>
+                                </form>
+                                <a href="/shopping" class="btn btn-light">Back to shopping</a>
+                            <% } %>
+                        </div>
+                    </div>
+                </div>
+            <% } else { %>
+                <div class="empty-state">No product found.</div>
+            <% } %>
+        </div>
+    </div>
+
+<%- include('partials/footer') %>

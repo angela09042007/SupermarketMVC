@@ -1,0 +1,54 @@
+<%- include('partials/header', { title: 'Supermarket App' }) %>
+<%- include('partials/navbar', { user: locals.user }) %>
+
+    <div class="container">
+      <div class="content-card auth-card">
+        <div class="section-heading mb-2">
+          <div>
+            <p class="eyebrow mb-1">Inventory</p>
+            <h2 class="mb-1">Edit product</h2>
+            <p class="muted mb-0">Adjust details with a calmer, centered layout.</p>
+          </div>
+          <span class="chip">Admin</span>
+        </div>
+
+        <% if (product) { %> 
+          <form action="/editProduct/<%= product.id %>" method="POST" enctype="multipart/form-data" class="mt-3"> 
+              <div class="mb-3">
+                <label for="name" class="form-label">Product Name</label>
+                <input type="text" id="name" name="name" value="<%= product.productName %>" class="form-control" required>
+              </div>
+
+              <div class="mb-3">
+                <label for="quantity" class="form-label">Quantity</label>
+                <input type="number" id="quantity" name="quantity" min="0" step="1" value="<%= product.quantity %>" class="form-control" required>
+              </div>
+
+              <div class="mb-3">
+                <label for="price" class="form-label">Price</label>
+                <input type="number" id="price" name="price" min="0" step="0.01" value="<%= product.price %>" class="form-control" required>
+              </div>
+
+              <div class="mb-3">
+                <label for="image" class="form-label">Current Image</label>
+                <input type="text" name="currentImage" value="<%= product.image %>" class="form-control" readonly>
+                <img src="/images/<%= product.image %>" class="img-thumbnail mt-2" style="width: 150px;">
+              </div>
+              
+              <div class="mb-4">
+                <label for="image" class="form-label">New Image (optional)</label>
+                <input type="file" id="image" name="image" accept="image/*" class="form-control">
+              </div>
+
+              <div class="d-grid gap-2">
+                <button type="submit" class="btn btn-primary">Update Product</button>
+                <a href="/" class="btn btn-light">Back</a>
+              </div>
+          </form>
+        <% } else { %>
+            <div class="empty-state">No product found.</div>
+        <% } %>
+      </div>
+    </div>
+
+<%- include('partials/footer') %>

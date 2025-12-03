@@ -1,0 +1,13 @@
+<form class="search-bar mb-3" action="<%= action %>" method="GET">
+  <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+    <circle cx="11" cy="11" r="7"></circle>
+    <line x1="16.65" y1="16.65" x2="21" y2="21"></line>
+  </svg>
+  <input
+    type="text"
+    name="q"
+    value="<%= typeof searchTerm !== 'undefined' ? searchTerm : '' %>"
+    placeholder="<%= placeholder || 'Search...' %>"
+    aria-label="<%= placeholder || 'Search' %>">
+  <button class="btn btn-primary btn-sm px-3" type="submit"><%= (typeof button !== 'undefined' && button) ? button : 'Search' %></button>
+</form>

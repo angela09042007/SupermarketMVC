@@ -1,0 +1,59 @@
+<%- include('partials/header', { title: 'Supermarket App' }) %>
+<%- include('partials/navbar', { user: locals.user }) %>
+
+<div class="container">
+    <div class="content-card">
+      <div class="section-heading mb-3">
+        <div>
+          <p class="eyebrow mb-1">Shopping</p>
+          <h2 class="mb-0">Fresh picks</h2>
+          <p class="muted mb-0">Browse products with clearer visuals and effortless quantity controls.</p>
+        </div>
+        <span class="chip">Welcome, <%= user.username %></span>
+      </div>
+
+      <%- include('partials/search', { action: '/search', placeholder: 'Search products...', searchTerm: (typeof searchTerm !== 'undefined' ? searchTerm : '') }) %>
+
+      <div class="table-responsive table-card">
+        <table class="table table-hover align-middle text-center mb-0">
+          <thead>
+              <tr>
+                <th width="120">Product</th>
+                <th width="140">Image</th>
+                <th width="80">In stock</th>
+                <th width="80">Price</th>
+                <th width="120">Quantity</th>
+                <th width="120">Buy</th>
+              </tr>
+          </thead>
+          <tbody>
+            <% for(let i=0; i < products.length; i++) { %>
+              <tr>
+                <td><a href="/product/<%= products[i].id %>"><%= products[i].productName %></a></td>
+                <td><img src="images/<%= products[i].image %>" alt="<%= products[i].productName %>"></td>
+                <td><%= products[i].quantity %></td>
+                <td>$<%= products[i].price.toFixed(2) %></td>
+                <td>
+                  <select class="form-select" onchange="document.getElementById('quantity-<%= products[i].id %>').value = this.value">
+                    <% for (let q = 1; q <= 5; q++) { %>
+                      <option value="<%= q %>"><%= q %></option>
+                    <% } %>
+                  </select>
+                </td>
+
+                <td>
+                    <form action="/add-to-cart/<%= products[i].id %>" method="POST" class="d-flex justify-content-center">
+                      <input type="hidden" name="quantity" id="quantity-<%= products[i].id %>" value="1">
+                      <button type="submit" class="btn btn-primary">Add</button>
+                    </form>
+                </td>
+
+              </tr>
+            <% } %>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+<%- include('partials/footer') %>
