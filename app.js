@@ -9,6 +9,7 @@ const productController = require('./controllers/productController');
 const cartController = require('./controllers/cartController');
 const orderController = require('./controllers/orderController');
 const discountCodeController = require('./controllers/discountCodeController');
+const netsController = require('./controllers/netsController');
 const app = express();
 
 // Set up multer for file uploads
@@ -87,6 +88,10 @@ app.get('/cart', checkAuthenticated, cartController.viewCart);
 app.post('/cart/apply-code', checkAuthenticated, discountCodeController.apply);
 app.post('/api/paypal/create-order', checkAuthenticated, cartController.createPaypalOrder);
 app.post('/api/paypal/capture-order', checkAuthenticated, cartController.capturePaypalOrder);
+app.post('/generateNETSQR', checkAuthenticated, netsController.generateQrCode);
+app.get('/nets-qr/success', checkAuthenticated, netsController.success);
+app.get('/nets-qr/fail', checkAuthenticated, netsController.fail);
+app.get('/sse/payment-status/:txnRetrievalRef', checkAuthenticated, netsController.ssePaymentStatus);
 
 // Invoice (last purchase in session)
 app.get('/invoice', checkAuthenticated, (req, res) => {
