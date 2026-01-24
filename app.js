@@ -1,4 +1,5 @@
 const express = require('express');
+require('dotenv').config();
 const session = require('express-session');
 const flash = require('connect-flash');
 const multer = require('multer');
@@ -30,6 +31,7 @@ app.use(express.static('public'));
 app.use(express.urlencoded({
     extended: false
 }));
+app.use(express.json());
 
 //TO DO: Insert code for Session Middleware below 
 app.use(session({
@@ -83,6 +85,8 @@ app.post('/cart/clear', checkAuthenticated, cartController.clearCart);
 app.post('/cart/checkout', checkAuthenticated, cartController.checkout);
 app.get('/cart', checkAuthenticated, cartController.viewCart);
 app.post('/cart/apply-code', checkAuthenticated, discountCodeController.apply);
+app.post('/api/paypal/create-order', checkAuthenticated, cartController.createPaypalOrder);
+app.post('/api/paypal/capture-order', checkAuthenticated, cartController.capturePaypalOrder);
 
 // Invoice (last purchase in session)
 app.get('/invoice', checkAuthenticated, (req, res) => {

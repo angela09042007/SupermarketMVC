@@ -1,5 +1,7 @@
 const Cart = require('../models/cart');
 const Orders = require('../models/orders');
+const paypal = require('../services/paypal');
+const PayPalTransactions = require('../models/paypalTransactions');
 
 const addToCart = (req, res) => {
     const productId = parseInt(req.params.id, 10);
@@ -204,11 +206,159 @@ const viewCart = (req, res) => {
     });
 };
 
+const createPaypalOrder = (req, res) => {
+    const userId = req.session.user && (req.session.user.id || req.session.user.user_id || req.session.user.userId);
+    if (!userId) {
+        return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    Cart.getCart(userId, async (cartErr, cart) => {
+        if (cartErr) {
+            return res.status(500).json({ error: 'Could not load cart.' });
+        }
+        if (!cart.length) {
+            return res.status(400).json({ error: 'Cart is empty.' });
+        }
+        const total = cart.reduce((sum, item) => sum + Number(item.price) * item.quantity, 0);
+        try {
+            const order = await paypal.createOrder(total.toFixed(2), 'USD');
+            if (order && order.id) {
+                return res.json({ id: order.id });
+            }
+            return res.status(500).json({ error: 'Failed to create PayPal order', details: order });
+        } catch (err) {
+            return res.status(500).json({ error: 'Failed to create PayPal order', message: err.message });
+        }
+    });
+};
+
+const capturePaypalOrder = async (req, res) => {
+    try {
+        const { orderID } = req.body;
+        if (!orderID) {
+            return res.status(400).json({ error: 'Missing orderID' });
+        }
+        const capture = await paypal.captureOrder(orderID);
+        if (capture.status !== 'COMPLETED') {
+            return res.status(400).json({ error: 'Payment not completed', details: capture });
+        }
+        return finalizePaypalCheckout(req, res, capture);
+    } catch (err) {
+        return res.status(500).json({ error: 'Failed to capture PayPal order', message: err.message });
+    }
+};
+
+function finalizePaypalCheckout(req, res, capture) {
+    const userId = req.session.user && (req.session.user.id || req.session.user.user_id || req.session.user.userId);
+    if (!userId) {
+        return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    Cart.getCart(userId, (cartErr, cart) => {
+        if (cartErr) {
+            return res.status(500).json({ error: 'Could not load cart.' });
+        }
+        if (!cart.length) {
+            return res.status(400).json({ error: 'Cart is empty.' });
+        }
+
+        const total = cart.reduce((sum, item) => sum + Number(item.price) * item.quantity, 0);
+        const unit = capture.purchase_units && capture.purchase_units[0];
+        const cap = unit && unit.payments && unit.payments.captures && unit.payments.captures[0];
+        const capturedAmount = cap && cap.amount ? Number(cap.amount.value) : 0;
+        if (capturedAmount && Math.abs(capturedAmount - total) > 0.01) {
+            return res.status(400).json({
+                error: 'Paid amount mismatch',
+                expected: total.toFixed(2),
+                received: capturedAmount
+            });
+        }
+
+        Cart.startTransaction(err => {
+            if (err) {
+                return res.status(500).json({ error: 'Could not start transaction.' });
+            }
+
+            const processItem = (index) => {
+                if (index >= cart.length) {
+                    return Orders.create(userId, cart, (orderErr, order) => {
+                        if (orderErr) {
+                            return Cart.rollback(() => res.status(500).json({ error: 'Could not save order.' }));
+                        }
+
+                        const capturedAt = cap && cap.create_time
+                            ? cap.create_time.replace('T', ' ').replace('Z', '')
+                            : null;
+                        const tx = {
+                            orderId: order.orderId,
+                            paypalOrderId: capture.id,
+                            captureId: cap && cap.id,
+                            payerId: capture.payer && capture.payer.payer_id,
+                            payerEmail: capture.payer && capture.payer.email_address,
+                            amount: capturedAmount || total,
+                            currency: (cap && cap.amount && cap.amount.currency_code) || 'USD',
+                            status: capture.status,
+                            capturedAt,
+                            raw: capture
+                        };
+
+                        return PayPalTransactions.create(tx, (txErr) => {
+                            if (txErr) {
+                                return Cart.rollback(() => res.status(500).json({ error: 'Could not save payment record.' }));
+                            }
+
+                            return Cart.commit(commitErr => {
+                                if (commitErr) {
+                                    return res.status(500).json({ error: 'Could not finalize order.' });
+                                }
+                                const invoiceItems = cart.map(item => ({
+                                    id: item.id,
+                                    productName: item.productName,
+                                    price: item.price,
+                                    quantity: item.quantity,
+                                    subtotal: Number(item.price) * item.quantity,
+                                    image: item.image
+                                }));
+                                Cart.clearCart(userId, () => {
+                                    req.session.lastInvoice = {
+                                        orderId: order.orderId,
+                                        items: invoiceItems,
+                                        total,
+                                        purchasedAt: new Date()
+                                    };
+                                    res.json({ success: true, orderId: order.orderId });
+                                });
+                            });
+                        });
+                    });
+                }
+
+                const item = cart[index];
+                Cart.decrementStock(item.id, item.quantity, (updateErr, result) => {
+                    if (updateErr) {
+                        return Cart.rollback(() => res.status(500).json({ error: 'Could not update stock.' }));
+                    }
+
+                    if (result.affectedRows === 0) {
+                        return Cart.rollback(() => res.status(409).json({ error: `Not enough stock for ${item.productName}.` }));
+                    }
+
+                    processItem(index + 1);
+                });
+            };
+
+            processItem(0);
+        });
+    });
+}
+
 module.exports = {
     addToCart,
     updateCartItem,
     removeCartItem,
     clearCart,
     checkout,
-    viewCart
+    viewCart,
+    createPaypalOrder,
+    capturePaypalOrder
 };
