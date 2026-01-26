@@ -8,6 +8,7 @@ const userController = require('./controllers/userController');
 const productController = require('./controllers/productController');
 const cartController = require('./controllers/cartController');
 const orderController = require('./controllers/orderController');
+const refundController = require('./controllers/refundController');
 const discountCodeController = require('./controllers/discountCodeController');
 const netsController = require('./controllers/netsController');
 const app = express();
@@ -110,6 +111,9 @@ app.get('/invoice', checkAuthenticated, (req, res) => {
 
 // Orders
 app.get('/orders', checkAuthenticated, orderController.list);
+app.post('/orders/refund/:orderItemId', checkAuthenticated, refundController.request);
+app.post('/admin/refunds/:refundId/approve', checkAuthenticated, checkAdmin, refundController.approve);
+app.post('/admin/refunds/:refundId/reject', checkAuthenticated, checkAdmin, refundController.reject);
 
 // Admin discount codes
 app.get('/admin/discount-codes', checkAuthenticated, checkAdmin, discountCodeController.index);

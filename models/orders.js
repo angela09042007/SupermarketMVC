@@ -43,9 +43,11 @@ const Orders = {
 
         const sql = `
             SELECT o.id, o.users_id AS user_id, o.total, o.created_at,
-                   oi.product_id, oi.product_name, oi.price, oi.quantity, oi.image
+                   oi.id AS order_item_id, oi.product_id, oi.product_name, oi.price, oi.quantity, oi.image,
+                   r.id AS refund_id, r.status AS refund_status, r.reason AS refund_reason, r.refund_amount
             FROM orders o
             JOIN order_items oi ON oi.order_id = o.id
+            LEFT JOIN refunds r ON r.order_item_id = oi.id
             ${where}
             ORDER BY o.created_at DESC, oi.id ASC
         `;
@@ -68,11 +70,16 @@ const Orders = {
                     map.set(r.id, order);
                 }
                 map.get(r.id).items.push({
+                    id: r.order_item_id,
                     productId: r.product_id,
                     productName: r.product_name,
                     price: Number(r.price),
                     quantity: r.quantity,
-                    image: r.image
+                    image: r.image,
+                    refundId: r.refund_id,
+                    refundStatus: r.refund_status,
+                    refundReason: r.refund_reason,
+                    refundAmount: r.refund_amount
                 });
             });
 
@@ -106,9 +113,11 @@ const Orders = {
 
         const sql = `
             SELECT o.id, o.users_id AS user_id, o.total, o.created_at,
-                   oi.product_id, oi.product_name, oi.price, oi.quantity, oi.image
+                   oi.id AS order_item_id, oi.product_id, oi.product_name, oi.price, oi.quantity, oi.image,
+                   r.id AS refund_id, r.status AS refund_status, r.reason AS refund_reason, r.refund_amount
             FROM orders o
             JOIN order_items oi ON oi.order_id = o.id
+            LEFT JOIN refunds r ON r.order_item_id = oi.id
             ${whereSql}
             ORDER BY o.created_at DESC, oi.id ASC
         `;
@@ -131,11 +140,16 @@ const Orders = {
                     map.set(r.id, order);
                 }
                 map.get(r.id).items.push({
+                    id: r.order_item_id,
                     productId: r.product_id,
                     productName: r.product_name,
                     price: Number(r.price),
                     quantity: r.quantity,
-                    image: r.image
+                    image: r.image,
+                    refundId: r.refund_id,
+                    refundStatus: r.refund_status,
+                    refundReason: r.refund_reason,
+                    refundAmount: r.refund_amount
                 });
             });
 

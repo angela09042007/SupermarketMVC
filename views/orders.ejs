@@ -45,6 +45,7 @@
                                         <th>Qty</th>
                                         <th>Price</th>
                                         <th>Subtotal</th>
+                                        <th>Refund</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -59,6 +60,35 @@
                                             <td><%= item.quantity %></td>
                                             <td>$<%= item.price.toFixed(2) %></td>
                                             <td>$<%= (item.price * item.quantity).toFixed(2) %></td>
+                                            <td>
+                                                <% if (item.refundStatus) { %>
+                                                    <div class="small text-muted">Status: <%= item.refundStatus %></div>
+                                                    <% if (item.refundReason) { %>
+                                                        <div class="small text-muted">Reason: <%= item.refundReason %></div>
+                                                    <% } %>
+                                                    <% if (item.refundAmount) { %>
+                                                        <div class="small text-muted">Amount: $<%= Number(item.refundAmount).toFixed(2) %></div>
+                                                    <% } %>
+                                                    <% if (user && user.role === 'admin' && item.refundStatus === 'pending' && item.refundId) { %>
+                                                        <div class="d-flex flex-column gap-2 mt-1">
+                                                            <form action="/admin/refunds/<%= item.refundId %>/approve" method="POST" class="d-flex gap-2 align-items-center">
+                                                                <input type="number" name="amount" class="form-control form-control-sm" step="0.01" min="0.01" max="<%= (item.price * item.quantity).toFixed(2) %>" value="<%= (item.price * item.quantity).toFixed(2) %>" style="max-width: 130px;">
+                                                                <button type="submit" class="btn btn-sm btn-outline-success">Approve</button>
+                                                            </form>
+                                                            <form action="/admin/refunds/<%= item.refundId %>/reject" method="POST">
+                                                                <button type="submit" class="btn btn-sm btn-outline-danger">Reject</button>
+                                                            </form>
+                                                        </div>
+                                                    <% } %>
+                                                <% } else if (user && user.role !== 'admin') { %>
+                                                    <form action="/orders/refund/<%= item.id %>" method="POST" class="d-flex flex-column gap-1">
+                                                        <input type="text" name="reason" class="form-control form-control-sm" placeholder="Refund reason" maxlength="255" required>
+                                                        <button type="submit" class="btn btn-sm btn-outline-warning">Request refund</button>
+                                                    </form>
+                                                <% } else { %>
+                                                    <span class="text-muted small">-</span>
+                                                <% } %>
+                                            </td>
                                         </tr>
                                     <% }); %>
                                 </tbody>
