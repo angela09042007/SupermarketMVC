@@ -29,6 +29,9 @@
         <% } else { %>
             <div class="d-flex flex-column gap-3">
                 <% orders.forEach(function(order){ %>
+                    <% const orderHasActiveRefund = order.items.some(item => item.refundStatus && item.refundStatus !== 'rejected'); %>
+                    <% const pendingRefundCount = order.items.filter(item => item.refundStatus === 'pending').length; %>
+                    <% const isFullOrderRefundPending = pendingRefundCount > 0 && pendingRefundCount === order.items.length; %>
                     <section class="surface" id="order-<%= order.id %>">
                         <div class="d-flex justify-content-between align-items-center mb-2">
                             <h5 class="mb-0">Order #<%= order.id %></h5>
@@ -36,6 +39,24 @@
                         </div>
                         <% if (user && user.role === 'admin') { %>
                             <p class="text-muted mb-3 small">User ID: <%= order.userId %></p>
+                            <% if (isFullOrderRefundPending) { %>
+                                <div class="d-flex flex-column flex-md-row gap-2 align-items-md-center mb-3">
+                                    <span class="small text-muted">Full order refund request pending.</span>
+                                    <form action="/admin/refunds/order/<%= order.id %>/approve" method="POST">
+                                        <button type="submit" class="btn btn-sm btn-outline-success">Approve full order</button>
+                                    </form>
+                                    <form action="/admin/refunds/order/<%= order.id %>/reject" method="POST">
+                                        <button type="submit" class="btn btn-sm btn-outline-danger">Reject full order</button>
+                                    </form>
+                                </div>
+                            <% } %>
+                        <% } else if (orderHasActiveRefund) { %>
+                            <p class="text-muted mb-3 small">Refund request already submitted for this order.</p>
+                        <% } else { %>
+                            <form action="/orders/refund-order/<%= order.id %>" method="POST" class="d-flex flex-column flex-md-row gap-2 align-items-md-center mb-3">
+                                <input type="text" name="reason" class="form-control form-control-sm" placeholder="Reason for full order refund" maxlength="255" required>
+                                <button type="submit" class="btn btn-sm btn-outline-warning">Request full order refund</button>
+                            </form>
                         <% } %>
                         <div class="table-responsive">
                             <table class="table table-striped align-middle mb-2">
@@ -69,7 +90,7 @@
                                                     <% if (item.refundAmount) { %>
                                                         <div class="small text-muted">Amount: S$<%= Number(item.refundAmount).toFixed(2) %></div>
                                                     <% } %>
-                                                    <% if (user && user.role === 'admin' && item.refundStatus === 'pending' && item.refundId) { %>
+                                                    <% if (user && user.role === 'admin' && item.refundStatus === 'pending' && item.refundId && !isFullOrderRefundPending) { %>
                                                         <div class="d-flex flex-column gap-2 mt-1">
                                                             <form action="/admin/refunds/<%= item.refundId %>/approve" method="POST" class="d-flex gap-2 align-items-center">
                                                                 <input type="number" name="amount" class="form-control form-control-sm" step="0.01" min="0.01" max="<%= (item.price * item.quantity).toFixed(2) %>" value="<%= (item.price * item.quantity).toFixed(2) %>" style="max-width: 130px;">
@@ -80,7 +101,7 @@
                                                             </form>
                                                         </div>
                                                     <% } %>
-                                                <% } else if (user && user.role !== 'admin') { %>
+                                                <% } else if (user && user.role !== 'admin' && !orderHasActiveRefund) { %>
                                                     <form action="/orders/refund/<%= item.id %>" method="POST" class="d-flex flex-column gap-1">
                                                         <input type="text" name="reason" class="form-control form-control-sm" placeholder="Refund reason" maxlength="255" required>
                                                         <button type="submit" class="btn btn-sm btn-outline-warning">Request refund</button>

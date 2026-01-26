@@ -113,8 +113,11 @@ app.get('/invoice', checkAuthenticated, (req, res) => {
 // Orders
 app.get('/orders', checkAuthenticated, orderController.list);
 app.post('/orders/refund/:orderItemId', checkAuthenticated, refundController.request);
+app.post('/orders/refund-order/:orderId', checkAuthenticated, refundController.requestFullOrder);
 app.post('/admin/refunds/:refundId/approve', checkAuthenticated, checkAdmin, refundController.approve);
 app.post('/admin/refunds/:refundId/reject', checkAuthenticated, checkAdmin, refundController.reject);
+app.post('/admin/refunds/order/:orderId/approve', checkAuthenticated, checkAdmin, refundController.approveOrder);
+app.post('/admin/refunds/order/:orderId/reject', checkAuthenticated, checkAdmin, refundController.rejectOrder);
 
 // Wallet
 app.get('/wallet', checkAuthenticated, walletController.view);

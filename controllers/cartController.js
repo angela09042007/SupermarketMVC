@@ -3,6 +3,8 @@ const Orders = require('../models/orders');
 const paypal = require('../services/paypal');
 const PayPalTransactions = require('../models/paypalTransactions');
 const Wallets = require('../models/wallets');
+const OrderPayments = require('../models/orderPayments');
+const OrderDiscounts = require('../models/orderDiscounts');
 
 function getCartTotal(cart) {
     return cart.reduce((sum, item) => sum + Number(item.price) * item.quantity, 0);
@@ -19,6 +21,14 @@ function resolveWalletApplied(req, cartTotal, walletBalance) {
     const applied = normalizeAmount(req.session.walletAppliedAmount);
     if (!applied) return 0;
     return Number(Math.min(applied, walletBalance, cartTotal).toFixed(2));
+}
+
+function resolveCartDiscount(req, cartTotal) {
+    const discount = req.session.cartDiscount && Number(req.session.cartDiscount.amount);
+    if (!Number.isFinite(discount) || discount <= 0) {
+        return 0;
+    }
+    return Number(Math.min(discount, cartTotal).toFixed(2));
 }
 
 const addToCart = (req, res) => {
@@ -130,6 +140,8 @@ const checkout = (req, res) => {
         }
 
         const cartTotal = getCartTotal(cart);
+        const discountAmount = resolveCartDiscount(req, cartTotal);
+        const discountedTotal = Number(Math.max(0, cartTotal - discountAmount).toFixed(2));
 
         Wallets.getOrCreate(userId, (walletErr, wallet) => {
             if (walletErr) {
@@ -138,7 +150,7 @@ const checkout = (req, res) => {
                 return res.redirect('/cart');
             }
             const walletBalance = wallet ? Number(wallet.balance) : 0;
-            const walletApplied = resolveWalletApplied(req, cartTotal, walletBalance);
+            const walletApplied = resolveWalletApplied(req, discountedTotal, walletBalance);
             if (walletApplied > 0) {
                 req.session.walletAppliedAmount = walletApplied;
             } else {
@@ -165,32 +177,79 @@ const checkout = (req, res) => {
                             }
 
                             const finalizeCommit = () => {
-                                Cart.commit(commitErr => {
-                                    if (commitErr) {
-                                        console.error('Commit error:', commitErr);
-                                        req.flash('cartError', 'Could not complete purchase. Please try again.');
-                                        return res.redirect('/cart');
-                                    }
-                                    const invoiceItems = cart.map(item => ({
-                                        id: item.id,
-                                        productName: item.productName,
-                                        price: item.price,
-                                        quantity: item.quantity,
-                                        subtotal: Number(item.price) * item.quantity,
-                                        image: item.image
-                                    }));
-                                    const total = invoiceItems.reduce((sum, item) => sum + item.subtotal, 0);
-                                    Cart.clearCart(userId, () => {
-                                        delete req.session.walletAppliedAmount;
-                                        req.session.lastInvoice = {
-                                            orderId: order.orderId,
-                                            items: invoiceItems,
-                                            total,
-                                            purchasedAt: new Date()
-                                        };
-                                        req.flash('cartMessage', `Purchase successful. Order #${order.orderId}`);
-                                        res.redirect('/invoice');
+                                const payments = [];
+                                if (walletApplied > 0) {
+                                    payments.push({
+                                        method: 'wallet',
+                                        amount: walletApplied,
+                                        currency: 'SGD'
                                     });
+                                }
+                                const netsAmount = normalizeAmount(req.session.netsPaidAmount);
+                                if (netsAmount) {
+                                    payments.push({
+                                        method: 'nets',
+                                        amount: netsAmount,
+                                        currency: 'SGD',
+                                        referenceId: req.session.netsPaidTxnRef || null
+                                    });
+                                }
+
+                                return OrderDiscounts.create(order.orderId, {
+                                    code: req.session.cartDiscount && req.session.cartDiscount.code,
+                                    amount: discountAmount,
+                                    currency: 'SGD'
+                                }, (discountErr) => {
+                                    if (discountErr) {
+                                        console.error('Order discount save error:', discountErr);
+                                        return Cart.rollback(() => {
+                                            req.flash('cartError', 'Could not complete purchase. Please try again.');
+                                            res.redirect('/cart');
+                                        });
+                                    }
+
+                                    return OrderPayments.createMany(order.orderId, payments, (payErr) => {
+                                    if (payErr) {
+                                        console.error('Order payment save error:', payErr);
+                                        return Cart.rollback(() => {
+                                            req.flash('cartError', 'Could not complete purchase. Please try again.');
+                                            res.redirect('/cart');
+                                        });
+                                    }
+
+                                    Cart.commit(commitErr => {
+                                        if (commitErr) {
+                                            console.error('Commit error:', commitErr);
+                                            req.flash('cartError', 'Could not complete purchase. Please try again.');
+                                            return res.redirect('/cart');
+                                        }
+                                        const invoiceItems = cart.map(item => ({
+                                            id: item.id,
+                                            productName: item.productName,
+                                            price: item.price,
+                                            quantity: item.quantity,
+                                            subtotal: Number(item.price) * item.quantity,
+                                            image: item.image
+                                        }));
+                                        const total = invoiceItems.reduce((sum, item) => sum + item.subtotal, 0);
+                                        Cart.clearCart(userId, () => {
+                                            delete req.session.walletAppliedAmount;
+                                            delete req.session.cartDiscount;
+                                            delete req.session.netsPaidAmount;
+                                            delete req.session.netsPaidTxnRef;
+                                            delete req.session.netsTxnRetrievalRef;
+                                            delete req.session.netsCartTotal;
+                                            req.session.lastInvoice = {
+                                                orderId: order.orderId,
+                                                items: invoiceItems,
+                                                total,
+                                                purchasedAt: new Date()
+                                            };
+                                            req.flash('cartMessage', `Purchase successful. Order #${order.orderId}`);
+                                        res.redirect('/invoice');
+                                        });
+                                    });
+                                });
                                 });
                             };
 
@@ -255,12 +314,14 @@ const viewCart = (req, res) => {
             return res.redirect('/shopping');
         }
         const cartTotal = getCartTotal(cart);
+        const discountAmount = resolveCartDiscount(req, cartTotal);
+        const discountedTotal = Number(Math.max(0, cartTotal - discountAmount).toFixed(2));
         Wallets.getOrCreate(userId, (walletErr, wallet) => {
             if (walletErr) {
                 console.error('Wallet load error:', walletErr);
             }
             const walletBalance = wallet ? Number(wallet.balance) : 0;
-            const walletApplied = resolveWalletApplied(req, cartTotal, walletBalance);
+            const walletApplied = resolveWalletApplied(req, discountedTotal, walletBalance);
             if (walletApplied > 0) {
                 req.session.walletAppliedAmount = walletApplied;
             } else {
@@ -269,9 +330,10 @@ const viewCart = (req, res) => {
             res.render('cart', {
                 cart,
                 cartTotal,
+                discountAmount,
                 walletBalance,
                 walletApplied,
-                payableTotal: Number(Math.max(0, cartTotal - walletApplied).toFixed(2)),
+                payableTotal: Number(Math.max(0, discountedTotal - walletApplied).toFixed(2)),
                 user: req.session.user,
                 messages: req.flash('cartMessage'),
                 errors: req.flash('cartError')
@@ -294,23 +356,25 @@ const createPaypalOrder = (req, res) => {
             return res.status(400).json({ error: 'Cart is empty.' });
         }
         const total = getCartTotal(cart);
+        const discountAmount = resolveCartDiscount(req, total);
+        const discountedTotal = Number(Math.max(0, total - discountAmount).toFixed(2));
         Wallets.getOrCreate(userId, async (walletErr, wallet) => {
             if (walletErr) {
                 return res.status(500).json({ error: 'Could not load wallet.' });
             }
             const walletBalance = wallet ? Number(wallet.balance) : 0;
-            const walletApplied = resolveWalletApplied(req, total, walletBalance);
+            const walletApplied = resolveWalletApplied(req, discountedTotal, walletBalance);
             if (walletApplied > 0) {
                 req.session.walletAppliedAmount = walletApplied;
             } else {
                 delete req.session.walletAppliedAmount;
             }
-            const payableTotal = Number(Math.max(0, total - walletApplied).toFixed(2));
+            const payableTotal = Number(Math.max(0, discountedTotal - walletApplied).toFixed(2));
             if (payableTotal <= 0) {
                 return res.status(400).json({ error: 'Wallet covers the full total. Use wallet checkout.' });
             }
             try {
-            const order = await paypal.createOrder(payableTotal.toFixed(2), 'SGD');
+                const order = await paypal.createOrder(payableTotal.toFixed(2), 'SGD');
                 if (order && order.id) {
                     return res.json({ id: order.id });
                 }
@@ -353,6 +417,8 @@ function finalizePaypalCheckout(req, res, capture) {
         }
 
         const total = getCartTotal(cart);
+        const discountAmount = resolveCartDiscount(req, total);
+        const discountedTotal = Number(Math.max(0, total - discountAmount).toFixed(2));
         const unit = capture.purchase_units && capture.purchase_units[0];
         const cap = unit && unit.payments && unit.payments.captures && unit.payments.captures[0];
         const capturedAmount = cap && cap.amount ? Number(cap.amount.value) : 0;
@@ -362,13 +428,13 @@ function finalizePaypalCheckout(req, res, capture) {
                 return res.status(500).json({ error: 'Could not load wallet.' });
             }
             const walletBalance = wallet ? Number(wallet.balance) : 0;
-            const walletApplied = resolveWalletApplied(req, total, walletBalance);
+            const walletApplied = resolveWalletApplied(req, discountedTotal, walletBalance);
             if (walletApplied > 0) {
                 req.session.walletAppliedAmount = walletApplied;
             } else {
                 delete req.session.walletAppliedAmount;
             }
-            const payableTotal = Number(Math.max(0, total - walletApplied).toFixed(2));
+            const payableTotal = Number(Math.max(0, discountedTotal - walletApplied).toFixed(2));
 
             if (capturedAmount && Math.abs(capturedAmount - payableTotal) > 0.01) {
                 return res.status(400).json({
@@ -407,7 +473,35 @@ function finalizePaypalCheckout(req, res, capture) {
                             };
 
                             const commitOrder = () => {
-                                return PayPalTransactions.create(tx, (txErr) => {
+                                const payments = [];
+                                if (walletApplied > 0) {
+                                    payments.push({
+                                        method: 'wallet',
+                                        amount: walletApplied,
+                                        currency: 'SGD'
+                                    });
+                                }
+                                payments.push({
+                                    method: 'paypal',
+                                    amount: capturedAmount || payableTotal,
+                                    currency: (cap && cap.amount && cap.amount.currency_code) || 'SGD',
+                                    referenceId: cap && cap.id
+                                });
+
+                                return OrderDiscounts.create(order.orderId, {
+                                    code: req.session.cartDiscount && req.session.cartDiscount.code,
+                                    amount: discountAmount,
+                                    currency: 'SGD'
+                                }, (discountErr) => {
+                                    if (discountErr) {
+                                        return Cart.rollback(() => res.status(500).json({ error: 'Could not save discount.' }));
+                                    }
+
+                                    return OrderPayments.createMany(order.orderId, payments, (payErr) => {
+                                        if (payErr) {
+                                            return Cart.rollback(() => res.status(500).json({ error: 'Could not save payment breakdown.' }));
+                                        }
+                                        return PayPalTransactions.create(tx, (txErr) => {
                                     if (txErr) {
                                         return Cart.rollback(() => res.status(500).json({ error: 'Could not save payment record.' }));
                                     }
@@ -426,6 +520,11 @@ function finalizePaypalCheckout(req, res, capture) {
                                         }));
                                         Cart.clearCart(userId, () => {
                                             delete req.session.walletAppliedAmount;
+                                            delete req.session.cartDiscount;
+                                            delete req.session.netsPaidAmount;
+                                            delete req.session.netsPaidTxnRef;
+                                            delete req.session.netsTxnRetrievalRef;
+                                            delete req.session.netsCartTotal;
                                             req.session.lastInvoice = {
                                                 orderId: order.orderId,
                                                 items: invoiceItems,
@@ -433,6 +532,8 @@ function finalizePaypalCheckout(req, res, capture) {
                                                 purchasedAt: new Date()
                                             };
                                             res.json({ success: true, orderId: order.orderId });
+                                        });
+                                    });
                                         });
                                     });
                                 });

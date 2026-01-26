@@ -149,6 +149,11 @@ const ssePaymentStatus = async (req, res) => {
 };
 
 const success = (req, res) => {
+  const txnRef = req.query.txn_retrieval_ref;
+  if (txnRef && req.session.netsTxnRetrievalRef && txnRef === req.session.netsTxnRetrievalRef) {
+    req.session.netsPaidAmount = req.session.netsCartTotal;
+    req.session.netsPaidTxnRef = txnRef;
+  }
   return cartController.checkout(req, res);
 };
 
