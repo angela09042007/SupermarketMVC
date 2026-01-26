@@ -58,8 +58,8 @@
                                                 <%= item.productName %>
                                             </td>
                                             <td><%= item.quantity %></td>
-                                            <td>$<%= item.price.toFixed(2) %></td>
-                                            <td>$<%= (item.price * item.quantity).toFixed(2) %></td>
+                                            <td>S$<%= item.price.toFixed(2) %></td>
+                                            <td>S$<%= (item.price * item.quantity).toFixed(2) %></td>
                                             <td>
                                                 <% if (item.refundStatus) { %>
                                                     <div class="small text-muted">Status: <%= item.refundStatus %></div>
@@ -67,7 +67,7 @@
                                                         <div class="small text-muted">Reason: <%= item.refundReason %></div>
                                                     <% } %>
                                                     <% if (item.refundAmount) { %>
-                                                        <div class="small text-muted">Amount: $<%= Number(item.refundAmount).toFixed(2) %></div>
+                                                        <div class="small text-muted">Amount: S$<%= Number(item.refundAmount).toFixed(2) %></div>
                                                     <% } %>
                                                     <% if (user && user.role === 'admin' && item.refundStatus === 'pending' && item.refundId) { %>
                                                         <div class="d-flex flex-column gap-2 mt-1">
@@ -95,7 +95,7 @@
                                 <tfoot>
                                     <tr>
                                         <th colspan="3" class="text-end">Total</th>
-                                        <th>$<%= order.total.toFixed(2) %></th>
+                                        <th>S$<%= order.total.toFixed(2) %></th>
                                     </tr>
                                 </tfoot>
                             </table>

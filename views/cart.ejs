@@ -1,5 +1,5 @@
 <%- include('partials/header', { title: 'Your Cart' }) %>
-<script src="https://www.paypal.com/sdk/js?client-id=<%= process.env.PAYPAL_CLIENT_ID %>&currency=USD"></script>
+<script src="https://www.paypal.com/sdk/js?client-id=<%= process.env.PAYPAL_CLIENT_ID %>&currency=SGD"></script>
 <%- include('partials/navbar', { user: locals.user }) %>
 
   <div class="container">
@@ -35,26 +35,25 @@
               </tr>
             </thead>
             <tbody>
-              <% let total = 0; %>
+              <% let total = Number(cartTotal || 0); %>
               <% for (let i = 0; i < cart.length; i++) { %>
                 <tr>
                     <td><%= cart[i].productName %></td>
                     <td><img src="/images/<%= cart[i].image %>" width="80" class="img-thumbnail"></td>
-                    <td>$<%= cart[i].price.toFixed(2) %></td>
+                    <td>S$<%= cart[i].price.toFixed(2) %></td>
                     <td>
                       <form action="/cart/update/<%= cart[i].id %>" method="POST" class="d-flex align-items-center gap-2">
                         <input type="number" name="quantity" value="<%= cart[i].quantity %>" min="1" class="form-control form-control-sm" style="width: 90px;">
                         <button type="submit" class="btn btn-sm btn-primary">Update</button>
                       </form>
                     </td>
-                    <td>$<%= (cart[i].price * cart[i].quantity).toFixed(2) %></td>
+                    <td>S$<%= (cart[i].price * cart[i].quantity).toFixed(2) %></td>
                     <td>
                       <form action="/cart/remove/<%= cart[i].id %>" method="POST">
                         <button type="submit" class="btn btn-sm btn-outline-danger">Remove</button>
                       </form>
                     </td>
                 </tr>
-                <% total += cart[i].price * cart[i].quantity; %>
               <% }; %>
             </tbody>
           </table>
@@ -69,22 +68,58 @@
             </form>
             <div id="promo-result" class="mt-2 small text-muted"></div>
             <div id="promo-totals" class="mt-2">
-              <div>Subtotal: $<span id="promo-subtotal"><%= total.toFixed(2) %></span></div>
-              <div>Discount: $<span id="promo-discount">0.00</span></div>
-              <div><strong>Total: $<span id="promo-total"><%= total.toFixed(2) %></span></strong></div>
+              <div>Subtotal: S$<span id="promo-subtotal"><%= total.toFixed(2) %></span></div>
+              <div>Discount: S$<span id="promo-discount">0.00</span></div>
+              <div><strong>Total: S$<span id="promo-total"><%= total.toFixed(2) %></span></strong></div>
             </div>
           </div>
           <div class="d-flex flex-wrap gap-2">
-            <h4 class="mb-2 mb-md-0 align-self-center">Total: $<%= total.toFixed(2) %></h4>
+            <div class="d-flex flex-column">
+              <h4 class="mb-1">Total: S$<%= total.toFixed(2) %></h4>
+              <% if (walletApplied && walletApplied > 0) { %>
+                <div class="small text-muted">Wallet applied: S$<%= walletApplied.toFixed(2) %></div>
+                <div class="small text-muted">Payable: S$<%= payableTotal.toFixed(2) %></div>
+              <% } %>
+            </div>
             <form action="/cart/clear" method="POST" class="d-inline">
               <button type="submit" class="btn btn-light">Clear Cart</button>
             </form>
           </div>
-          <div class="d-flex flex-column gap-2 mt-3">
-            <div id="paypal-button-container"></div>
-            <form action="/generateNETSQR" method="POST">
-              <button type="submit" class="btn btn-success w-100">Pay with NETS QR</button>
-            </form>
+          <div class="row g-3 mt-3">
+            <div class="col-12 col-md-4">
+              <div class="surface p-3 h-100">
+                <h6 class="mb-2">Wallet</h6>
+                <div class="small text-muted">Balance: S$<%= (walletBalance || 0).toFixed(2) %></div>
+                <form action="/wallet/apply" method="POST" class="d-flex gap-2 align-items-center mt-2">
+                  <input type="number" name="amount" class="form-control form-control-sm" step="0.01" min="0.01" max="<%= Math.min(walletBalance || 0, total).toFixed(2) %>" placeholder="Amount">
+                  <button type="submit" class="btn btn-sm btn-outline-primary">Apply</button>
+                </form>
+                <% if (walletApplied && walletApplied > 0) { %>
+                  <form action="/wallet/remove" method="POST" class="mt-2">
+                    <button type="submit" class="btn btn-sm btn-outline-secondary w-100">Remove wallet</button>
+                  </form>
+                <% } %>
+                <% if (walletBalance && walletBalance >= total && total > 0) { %>
+                  <form action="/wallet/checkout" method="POST" class="mt-2">
+                    <button type="submit" class="btn btn-sm btn-success w-100">Pay with Wallet</button>
+                  </form>
+                <% } %>
+              </div>
+            </div>
+            <div class="col-12 col-md-4">
+              <div class="surface p-3 h-100">
+                <h6 class="mb-2">PayPal</h6>
+                <div id="paypal-button-container"></div>
+              </div>
+            </div>
+            <div class="col-12 col-md-4">
+              <div class="surface p-3 h-100">
+                <h6 class="mb-2">NETS QR</h6>
+                <form action="/generateNETSQR" method="POST">
+                  <button type="submit" class="btn btn-success w-100">Pay with NETS QR</button>
+                </form>
+              </div>
+            </div>
           </div>
         </div>
       <% } %>

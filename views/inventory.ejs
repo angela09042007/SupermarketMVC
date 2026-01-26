@@ -36,7 +36,7 @@
                 <td><a href="/product/<%= products[i].id %>"><%= products[i].productName %></a></td>
                 <td><img src="images/<%= products[i].image %>" alt="<%= products[i].productName %>"></td>
                 <td><%= products[i].quantity %></td>
-                <td>$<%= products[i].price.toFixed(2) %></td>
+                <td>S$<%= products[i].price.toFixed(2) %></td>
                 <td><a href="/updateProduct/<%= products[i].id %>" class="btn btn-sm btn-light">Edit</a></td>
                 <td><a href="/deleteProduct/<%= products[i].id %>" class="btn btn-sm btn-outline-danger" onclick="return confirm('Are you sure you want to delete this product?')">Delete</a></td>
               </tr>

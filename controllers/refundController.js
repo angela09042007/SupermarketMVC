@@ -1,6 +1,7 @@
 const Refunds = require('../models/refunds');
 const paypal = require('../services/paypal');
 const PayPalTransactions = require('../models/paypalTransactions');
+const Wallets = require('../models/wallets');
 
 function normalizeAmount(value) {
     const amount = Number(value);
@@ -89,12 +90,43 @@ function updateStatus(status) {
                 }
 
                 if (!tx || !tx.captureId) {
-                    req.flash('error', 'No online payment found for this order. NETS refunds not configured.');
-                    return res.redirect(`/orders?focus=${refund.orderId}#order-${refund.orderId}`);
+                    return Wallets.credit(refund.userId, refundAmount, {
+                        description: `Refund for order #${refund.orderId}`,
+                        referenceType: 'refund',
+                        referenceId: refund.id
+                    }, (walletErr, walletTxnId) => {
+                        if (walletErr) {
+                            console.error('Wallet credit error:', walletErr);
+                            req.flash('error', 'Could not credit wallet for refund.');
+                            return res.redirect(`/orders?focus=${refund.orderId}#order-${refund.orderId}`);
+                        }
+
+                        return Refunds.updateStatus(refundId, status, {
+                            refundAmount,
+                            currency: 'SGD',
+                            paymentMethod: 'wallet',
+                            refundTxnId: walletTxnId,
+                            processedBy: req.session.user && req.session.user.id
+                        }, (updateErr, result) => {
+                            if (updateErr) {
+                                console.error('Refund update error:', updateErr);
+                                req.flash('error', 'Could not update refund request.');
+                                return res.redirect(`/orders?focus=${refund.orderId}#order-${refund.orderId}`);
+                            }
+
+                            if (!result || result.affectedRows === 0) {
+                                req.flash('error', 'Refund request was not updated.');
+                                return res.redirect(`/orders?focus=${refund.orderId}#order-${refund.orderId}`);
+                            }
+
+                    req.flash('success', `Refund S$${refundAmount.toFixed(2)} credited to wallet.`);
+                            return res.redirect(`/orders?focus=${refund.orderId}#order-${refund.orderId}`);
+                        });
+                    });
                 }
 
                 try {
-                    const response = await paypal.refundCapture(tx.captureId, refundAmount.toFixed(2), tx.currency || 'USD');
+                    const response = await paypal.refundCapture(tx.captureId, refundAmount.toFixed(2), tx.currency || 'SGD');
                     if (!response || !response.id || (response.status !== 'COMPLETED' && response.status !== 'PENDING')) {
                         req.flash('error', 'Refund failed at payment gateway.');
                         return res.redirect(`/orders?focus=${refund.orderId}#order-${refund.orderId}`);
@@ -102,7 +134,7 @@ function updateStatus(status) {
 
                     return Refunds.updateStatus(refundId, status, {
                         refundAmount,
-                        currency: tx.currency || 'USD',
+                        currency: tx.currency || 'SGD',
                         paymentMethod: 'paypal',
                         refundTxnId: response.id,
                         processedBy: req.session.user && req.session.user.id
@@ -118,7 +150,7 @@ function updateStatus(status) {
                             return res.redirect(`/orders?focus=${refund.orderId}#order-${refund.orderId}`);
                         }
 
-                        req.flash('success', `Refund ${refundAmount.toFixed(2)} processed via PayPal.`);
+                        req.flash('success', `Refund S$${refundAmount.toFixed(2)} processed via PayPal.`);
                         return res.redirect(`/orders?focus=${refund.orderId}#order-${refund.orderId}`);
                     });
                 } catch (gatewayErr) {

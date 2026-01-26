@@ -11,6 +11,7 @@ const orderController = require('./controllers/orderController');
 const refundController = require('./controllers/refundController');
 const discountCodeController = require('./controllers/discountCodeController');
 const netsController = require('./controllers/netsController');
+const walletController = require('./controllers/walletController');
 const app = express();
 
 // Set up multer for file uploads
@@ -114,6 +115,17 @@ app.get('/orders', checkAuthenticated, orderController.list);
 app.post('/orders/refund/:orderItemId', checkAuthenticated, refundController.request);
 app.post('/admin/refunds/:refundId/approve', checkAuthenticated, checkAdmin, refundController.approve);
 app.post('/admin/refunds/:refundId/reject', checkAuthenticated, checkAdmin, refundController.reject);
+
+// Wallet
+app.get('/wallet', checkAuthenticated, walletController.view);
+app.post('/wallet/apply', checkAuthenticated, walletController.applyToCart);
+app.post('/wallet/remove', checkAuthenticated, walletController.removeFromCart);
+app.post('/wallet/checkout', checkAuthenticated, walletController.checkout);
+app.post('/wallet/topup/paypal/create-order', checkAuthenticated, walletController.createTopupPaypalOrder);
+app.post('/wallet/topup/paypal/capture-order', checkAuthenticated, walletController.captureTopupPaypalOrder);
+app.post('/wallet/topup/nets', checkAuthenticated, walletController.topupWithNets);
+app.get('/wallet/topup/nets/success', checkAuthenticated, walletController.topupNetsSuccess);
+app.get('/wallet/topup/nets/fail', checkAuthenticated, walletController.topupNetsFail);
 
 // Admin discount codes
 app.get('/admin/discount-codes', checkAuthenticated, checkAdmin, discountCodeController.index);

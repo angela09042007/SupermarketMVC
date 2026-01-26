@@ -32,7 +32,7 @@
                 <td><a href="/product/<%= products[i].id %>"><%= products[i].productName %></a></td>
                 <td><img src="images/<%= products[i].image %>" alt="<%= products[i].productName %>"></td>
                 <td><%= products[i].quantity %></td>
-                <td>$<%= products[i].price.toFixed(2) %></td>
+                <td>S$<%= products[i].price.toFixed(2) %></td>
                 <td>
                   <select class="form-select" onchange="document.getElementById('quantity-<%= products[i].id %>').value = this.value">
                     <% for (let q = 1; q <= 5; q++) { %>

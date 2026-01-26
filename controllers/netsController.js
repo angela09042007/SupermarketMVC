@@ -1,6 +1,24 @@
 const Cart = require('../models/cart');
 const nets = require('../services/nets');
 const cartController = require('./cartController');
+const Wallets = require('../models/wallets');
+
+function getCartTotal(cart) {
+  return cart.reduce((sum, item) => sum + Number(item.price) * item.quantity, 0);
+}
+
+function normalizeAmount(value) {
+  const amount = Number(value);
+  if (!Number.isFinite(amount)) return null;
+  if (amount <= 0) return null;
+  return Number(amount.toFixed(2));
+}
+
+function resolveWalletApplied(req, cartTotal, walletBalance) {
+  const applied = normalizeAmount(req.session.walletAppliedAmount);
+  if (!applied) return 0;
+  return Number(Math.min(applied, walletBalance, cartTotal).toFixed(2));
+}
 
 const generateQrCode = (req, res) => {
   const userId = req.session.user && (req.session.user.id || req.session.user.user_id || req.session.user.userId);
@@ -21,22 +39,43 @@ const generateQrCode = (req, res) => {
       return res.redirect('/cart');
     }
 
-    const total = cart.reduce((sum, item) => sum + Number(item.price) * item.quantity, 0);
+    const total = getCartTotal(cart);
 
-    try {
-      const response = await nets.requestQrCode(total.toFixed(2));
+    Wallets.getOrCreate(userId, async (walletErr, wallet) => {
+      if (walletErr) {
+        console.error('Wallet load error:', walletErr);
+        req.flash('cartError', 'Could not load wallet.');
+        return res.redirect('/cart');
+      }
+      const walletBalance = wallet ? Number(wallet.balance) : 0;
+      const walletApplied = resolveWalletApplied(req, total, walletBalance);
+      if (walletApplied > 0) {
+        req.session.walletAppliedAmount = walletApplied;
+      } else {
+        delete req.session.walletAppliedAmount;
+      }
+      const payableTotal = Number(Math.max(0, total - walletApplied).toFixed(2));
+      if (payableTotal <= 0) {
+        return cartController.checkout(req, res);
+      }
+
+      try {
+        const response = await nets.requestQrCode(payableTotal.toFixed(2));
       const qrData = response && response.result && response.result.data ? response.result.data : {};
 
       if (qrData.response_code === '00' && qrData.txn_status === 1 && qrData.qr_code) {
         req.session.netsTxnRetrievalRef = qrData.txn_retrieval_ref;
-        req.session.netsCartTotal = total.toFixed(2);
+        req.session.netsCartTotal = payableTotal.toFixed(2);
 
         return res.render('netsQr', {
           title: 'Scan to Pay',
-          total: total.toFixed(2),
+          total: payableTotal.toFixed(2),
           qrCodeUrl: `data:image/png;base64,${qrData.qr_code}`,
           txnRetrievalRef: qrData.txn_retrieval_ref,
-          timer: 300
+          timer: 300,
+          backUrl: '/cart',
+          successUrl: '/nets-qr/success',
+          failUrl: '/nets-qr/fail'
         });
       }
 
@@ -51,10 +90,11 @@ const generateQrCode = (req, res) => {
         instructions: qrData.instruction || '',
         errorMsg
       });
-    } catch (error) {
-      console.error('Error in generateQrCode:', error.message);
-      return res.redirect('/nets-qr/fail');
-    }
+      } catch (error) {
+        console.error('Error in generateQrCode:', error.message);
+        return res.redirect('/nets-qr/fail');
+      }
+    });
   });
 };
 

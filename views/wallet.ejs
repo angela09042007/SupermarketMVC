@@ -1,0 +1,150 @@
+<%- include('partials/header', { title: 'Wallet' }) %>
+<script src="https://www.paypal.com/sdk/js?client-id=<%= process.env.PAYPAL_CLIENT_ID %>&currency=SGD"></script>
+<%- include('partials/navbar', { user: locals.user }) %>
+
+<div class="container">
+  <div class="content-card">
+    <header class="mb-3 section-heading">
+      <div>
+        <p class="eyebrow mb-1">Wallet</p>
+        <h2 class="mb-0">My balance</h2>
+      </div>
+      <a href="/shopping" class="btn btn-light btn-sm">Back to shopping</a>
+    </header>
+
+    <% if (errors && errors.length) { %>
+      <div class="alert alert-danger">
+        <% errors.forEach(function(err){ %><p class="mb-0"><%= err %></p><% }); %>
+      </div>
+    <% } %>
+    <% if (messages && messages.length) { %>
+      <div class="alert alert-success">
+        <% messages.forEach(function(msg){ %><p class="mb-0"><%= msg %></p><% }); %>
+      </div>
+    <% } %>
+
+    <div class="surface p-3 mb-3">
+      <div class="d-flex justify-content-between align-items-center">
+        <div>
+          <div class="text-muted small">Available balance</div>
+          <h3 class="mb-0">S$<%= wallet && wallet.balance ? Number(wallet.balance).toFixed(2) : '0.00' %></h3>
+        </div>
+        <a href="/cart" class="btn btn-outline-primary btn-sm">Use in cart</a>
+      </div>
+    </div>
+
+    <div class="surface p-3 mb-3">
+      <div class="section-heading mb-2">
+        <div>
+          <p class="eyebrow mb-1">Top up</p>
+          <h5 class="mb-0">Add funds to wallet</h5>
+        </div>
+      </div>
+      <div class="mb-3">
+        <label class="form-label small text-muted" for="wallet-topup-amount">Top up amount</label>
+        <input type="number" id="wallet-topup-amount" class="form-control" placeholder="e.g. 10.00" min="0.01" step="0.01">
+      </div>
+      <div class="row g-3">
+        <div class="col-12 col-md-6">
+          <div class="surface p-3 h-100">
+            <h6 class="mb-2">PayPal</h6>
+            <div id="wallet-paypal-button"></div>
+          </div>
+        </div>
+        <div class="col-12 col-md-6">
+          <div class="surface p-3 h-100">
+            <h6 class="mb-2">NETS QR</h6>
+            <form action="/wallet/topup/nets" method="POST" id="wallet-nets-form">
+              <input type="hidden" name="amount" id="wallet-nets-amount">
+              <button type="submit" class="btn btn-success w-100">Top up with NETS QR</button>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <h6 class="mb-2">Recent activity</h6>
+    <% if (!transactions || !transactions.length) { %>
+      <div class="empty-state">No wallet activity yet.</div>
+    <% } else { %>
+      <div class="table-responsive">
+        <table class="table table-striped align-middle mb-0">
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Type</th>
+              <th>Description</th>
+              <th>Amount</th>
+              <th>Reference</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% transactions.forEach(function(tx){ %>
+              <tr>
+                <td class="small text-muted"><%= new Date(tx.createdAt).toLocaleString() %></td>
+                <td><span class="badge <%= tx.type === 'credit' ? 'bg-success' : 'bg-warning text-dark' %>"><%= tx.type %></span></td>
+                <td><%= tx.description || '-' %></td>
+                <td><%= tx.type === 'credit' ? '+' : '-' %>S$<%= Number(tx.amount).toFixed(2) %></td>
+                <td class="small text-muted"><%= tx.referenceType ? `${tx.referenceType} #${tx.referenceId}` : '-' %></td>
+              </tr>
+            <% }); %>
+          </tbody>
+        </table>
+      </div>
+    <% } %>
+  </div>
+</div>
+
+<%- include('partials/footer') %>
+
+<script>
+  const topupAmountInput = document.getElementById('wallet-topup-amount');
+  const netsAmountInput = document.getElementById('wallet-nets-amount');
+  const netsForm = document.getElementById('wallet-nets-form');
+  const paypalContainer = document.getElementById('wallet-paypal-button');
+
+  if (netsForm) {
+    netsForm.addEventListener('submit', (e) => {
+      const amount = parseFloat(topupAmountInput.value || '0');
+      if (!amount || amount <= 0) {
+        e.preventDefault();
+        alert('Please enter a valid top up amount.');
+        return;
+      }
+      netsAmountInput.value = amount.toFixed(2);
+    });
+  }
+
+  if (paypalContainer && window.paypal) {
+    paypal.Buttons({
+      createOrder: function () {
+        const amount = parseFloat(topupAmountInput.value || '0');
+        if (!amount || amount <= 0) {
+          alert('Please enter a valid top up amount.');
+          return;
+        }
+        return fetch('/wallet/topup/paypal/create-order', {
+          method: 'post',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ amount: amount.toFixed(2) })
+        }).then(res => res.json()).then(data => {
+          if (data && data.id) return data.id;
+          throw new Error(data.error || 'Failed to create PayPal order');
+        });
+      },
+      onApprove: function (data) {
+        return fetch('/wallet/topup/paypal/capture-order', {
+          method: 'post',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ orderID: data.orderID })
+        }).then(res => res.json()).then(details => {
+          if (details.success) {
+            window.location.href = '/wallet';
+          } else {
+            alert(details.error || 'Top up not completed.');
+          }
+        });
+      }
+    }).render('#wallet-paypal-button');
+  }
+</script>

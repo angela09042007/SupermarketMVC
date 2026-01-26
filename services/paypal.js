@@ -30,7 +30,7 @@ async function createOrder(amount, currency) {
       intent: 'CAPTURE',
       purchase_units: [{
         amount: {
-          currency_code: currency || 'USD',
+          currency_code: currency || 'SGD',
           value: amount
         }
       }]
@@ -56,7 +56,7 @@ async function refundCapture(captureId, amount, currency) {
   const body = amount ? {
     amount: {
       value: amount,
-      currency_code: currency || 'USD'
+      currency_code: currency || 'SGD'
     }
   } : {};
   const response = await fetch(`${PAYPAL_API}/v2/payments/captures/${captureId}/refund`, {

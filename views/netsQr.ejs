@@ -8,7 +8,7 @@
         <p class="eyebrow mb-1">NETS QR</p>
         <h2 class="mb-0">Scan to pay</h2>
       </div>
-      <a href="/cart" class="btn btn-light btn-sm">Back to cart</a>
+      <a href="<%= backUrl || '/cart' %>" class="btn btn-light btn-sm">Back</a>
     </div>
 
     <div class="row g-4 align-items-center">
@@ -16,7 +16,7 @@
         <img src="<%= qrCodeUrl %>" alt="NETS QR Code" class="img-fluid" style="max-width: 320px;">
       </div>
       <div class="col-lg-6">
-        <p class="mb-2">Amount due: <strong>$<%= total %></strong></p>
+        <p class="mb-2">Amount due: <strong>S$<%= total %></strong></p>
         <p id="status" class="mb-2">Scan with your bank app to complete payment.</p>
         <p id="timer" class="text-muted mb-3">Time remaining: 5:00</p>
         <p class="small text-muted mb-0">Do not close this page until payment is complete.</p>
@@ -34,6 +34,8 @@
 
   const txnRetrievalRef = "<%= txnRetrievalRef %>";
   const url = `/sse/payment-status/${txnRetrievalRef}`;
+  const successUrl = "<%= successUrl || '/nets-qr/success' %>";
+  const failUrl = "<%= failUrl || '/nets-qr/fail' %>";
 
   s2sNetsTxnStatus = new EventSourcePolyfill(url, {
     heartbeatTimeout: 150000
@@ -44,10 +46,10 @@
 
     if (data.success) {
       if (s2sNetsTxnStatus) s2sNetsTxnStatus.close();
-      window.location.href = `/nets-qr/success?txn_retrieval_ref=${encodeURIComponent(txnRetrievalRef)}`;
+      window.location.href = `${successUrl}?txn_retrieval_ref=${encodeURIComponent(txnRetrievalRef)}`;
     } else if (data.fail) {
       if (s2sNetsTxnStatus) s2sNetsTxnStatus.close();
-      window.location.href = `/nets-qr/fail?txn_retrieval_ref=${encodeURIComponent(txnRetrievalRef)}`;
+      window.location.href = `${failUrl}?txn_retrieval_ref=${encodeURIComponent(txnRetrievalRef)}`;
     }
   });
 
@@ -67,7 +69,7 @@
       if (s2sNetsTxnStatus) {
         s2sNetsTxnStatus.close();
       }
-      window.location.href = `/nets-qr/fail?txn_retrieval_ref=${encodeURIComponent(txnRetrievalRef)}`;
+      window.location.href = `${failUrl}?txn_retrieval_ref=${encodeURIComponent(txnRetrievalRef)}`;
     }
   };
 
