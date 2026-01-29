@@ -5,6 +5,7 @@ const PayPalTransactions = require('../models/paypalTransactions');
 const Wallets = require('../models/wallets');
 const OrderPayments = require('../models/orderPayments');
 const OrderDiscounts = require('../models/orderDiscounts');
+const DiscountCodes = require('../models/discountCodes');
 
 function getCartTotal(cart) {
     return cart.reduce((sum, item) => sum + Number(item.price) * item.quantity, 0);
@@ -30,6 +31,7 @@ function resolveCartDiscount(req, cartTotal) {
     }
     return Number(Math.min(discount, cartTotal).toFixed(2));
 }
+
 
 const addToCart = (req, res) => {
     const productId = parseInt(req.params.id, 10);
@@ -177,6 +179,11 @@ const checkout = (req, res) => {
                             }
 
                             const finalizeCommit = () => {
+                                const discountId = req.session.cartDiscount && req.session.cartDiscount.id;
+                                const applyDiscountUse = (callback) => {
+                                    if (!discountId) return callback();
+                                    return DiscountCodes.decrementUse(discountId, callback);
+                                };
                                 const payments = [];
                                 if (walletApplied > 0) {
                                     payments.push({
@@ -208,48 +215,63 @@ const checkout = (req, res) => {
                                         });
                                     }
 
-                                    return OrderPayments.createMany(order.orderId, payments, (payErr) => {
-                                    if (payErr) {
-                                        console.error('Order payment save error:', payErr);
-                                        return Cart.rollback(() => {
-                                            req.flash('cartError', 'Could not complete purchase. Please try again.');
-                                            res.redirect('/cart');
-                                        });
-                                    }
-
-                                    Cart.commit(commitErr => {
-                                        if (commitErr) {
-                                            console.error('Commit error:', commitErr);
-                                            req.flash('cartError', 'Could not complete purchase. Please try again.');
-                                            return res.redirect('/cart');
+                                    return applyDiscountUse((discountUseErr) => {
+                                        if (discountUseErr) {
+                                            console.error('Discount use decrement error:', discountUseErr);
+                                            return Cart.rollback(() => {
+                                                req.flash('cartError', 'Could not complete purchase. Please try again.');
+                                                res.redirect('/cart');
+                                            });
                                         }
-                                        const invoiceItems = cart.map(item => ({
-                                            id: item.id,
-                                            productName: item.productName,
-                                            price: item.price,
-                                            quantity: item.quantity,
-                                            subtotal: Number(item.price) * item.quantity,
-                                            image: item.image
-                                        }));
-                                        const total = invoiceItems.reduce((sum, item) => sum + item.subtotal, 0);
-                                        Cart.clearCart(userId, () => {
-                                            delete req.session.walletAppliedAmount;
-                                            delete req.session.cartDiscount;
-                                            delete req.session.netsPaidAmount;
-                                            delete req.session.netsPaidTxnRef;
-                                            delete req.session.netsTxnRetrievalRef;
-                                            delete req.session.netsCartTotal;
-                                            req.session.lastInvoice = {
-                                                orderId: order.orderId,
-                                                items: invoiceItems,
-                                                total,
-                                                purchasedAt: new Date()
-                                            };
-                                            req.flash('cartMessage', `Purchase successful. Order #${order.orderId}`);
-                                        res.redirect('/invoice');
+
+                                        return OrderPayments.createMany(order.orderId, payments, (payErr) => {
+                                            if (payErr) {
+                                                console.error('Order payment save error:', payErr);
+                                                return Cart.rollback(() => {
+                                                    req.flash('cartError', 'Could not complete purchase. Please try again.');
+                                                    res.redirect('/cart');
+                                                });
+                                            }
+
+                                            Cart.commit(commitErr => {
+                                                if (commitErr) {
+                                                    console.error('Commit error:', commitErr);
+                                                    req.flash('cartError', 'Could not complete purchase. Please try again.');
+                                                    return res.redirect('/cart');
+                                                }
+                                                const invoiceItems = cart.map(item => ({
+                                                    id: item.id,
+                                                    productName: item.productName,
+                                                    price: item.price,
+                                                    quantity: item.quantity,
+                                                    subtotal: Number(item.price) * item.quantity,
+                                                    image: item.image
+                                                }));
+                                                const total = invoiceItems.reduce((sum, item) => sum + item.subtotal, 0);
+                                                Cart.clearCart(userId, () => {
+                                                    delete req.session.walletAppliedAmount;
+                                                    delete req.session.cartDiscount;
+                                                    delete req.session.netsPaidAmount;
+                                                    delete req.session.netsPaidTxnRef;
+                                                    delete req.session.netsTxnRetrievalRef;
+                                                    delete req.session.netsCartTotal;
+                                                    const netTotal = Number(Math.max(0, total - discountAmount).toFixed(2));
+                                                    req.session.lastInvoice = {
+                                                        orderId: order.orderId,
+                                                        items: invoiceItems,
+                                                        total,
+                                                        discountAmount,
+                                                        discountCode: req.session.cartDiscount && req.session.cartDiscount.code,
+                                                        payments,
+                                                        netTotal,
+                                                        purchasedAt: new Date()
+                                                    };
+                                                    req.flash('cartMessage', `Purchase successful. Order #${order.orderId}`);
+                                                    res.redirect('/invoice');
+                                                });
+                                            });
                                         });
                                     });
-                                });
                                 });
                             };
 
@@ -473,6 +495,11 @@ function finalizePaypalCheckout(req, res, capture) {
                             };
 
                             const commitOrder = () => {
+                                const discountId = req.session.cartDiscount && req.session.cartDiscount.id;
+                                const applyDiscountUse = (callback) => {
+                                    if (!discountId) return callback();
+                                    return DiscountCodes.decrementUse(discountId, callback);
+                                };
                                 const payments = [];
                                 if (walletApplied > 0) {
                                     payments.push({
@@ -497,43 +524,54 @@ function finalizePaypalCheckout(req, res, capture) {
                                         return Cart.rollback(() => res.status(500).json({ error: 'Could not save discount.' }));
                                     }
 
-                                    return OrderPayments.createMany(order.orderId, payments, (payErr) => {
-                                        if (payErr) {
-                                            return Cart.rollback(() => res.status(500).json({ error: 'Could not save payment breakdown.' }));
+                                    return applyDiscountUse((discountUseErr) => {
+                                        if (discountUseErr) {
+                                            return Cart.rollback(() => res.status(500).json({ error: 'Could not apply discount.' }));
                                         }
-                                        return PayPalTransactions.create(tx, (txErr) => {
-                                    if (txErr) {
-                                        return Cart.rollback(() => res.status(500).json({ error: 'Could not save payment record.' }));
-                                    }
+                                        return OrderPayments.createMany(order.orderId, payments, (payErr) => {
+                                            if (payErr) {
+                                                return Cart.rollback(() => res.status(500).json({ error: 'Could not save payment breakdown.' }));
+                                            }
+                                            return PayPalTransactions.create(tx, (txErr) => {
+                                                if (txErr) {
+                                                    return Cart.rollback(() => res.status(500).json({ error: 'Could not save payment record.' }));
+                                                }
 
-                                    return Cart.commit(commitErr => {
-                                        if (commitErr) {
-                                            return res.status(500).json({ error: 'Could not finalize order.' });
-                                        }
-                                        const invoiceItems = cart.map(item => ({
-                                            id: item.id,
-                                            productName: item.productName,
-                                            price: item.price,
-                                            quantity: item.quantity,
-                                            subtotal: Number(item.price) * item.quantity,
-                                            image: item.image
-                                        }));
-                                        Cart.clearCart(userId, () => {
-                                            delete req.session.walletAppliedAmount;
-                                            delete req.session.cartDiscount;
-                                            delete req.session.netsPaidAmount;
-                                            delete req.session.netsPaidTxnRef;
-                                            delete req.session.netsTxnRetrievalRef;
-                                            delete req.session.netsCartTotal;
-                                            req.session.lastInvoice = {
-                                                orderId: order.orderId,
-                                                items: invoiceItems,
-                                                total,
-                                                purchasedAt: new Date()
-                                            };
-                                            res.json({ success: true, orderId: order.orderId });
-                                        });
-                                    });
+                                                return Cart.commit(commitErr => {
+                                                    if (commitErr) {
+                                                        return res.status(500).json({ error: 'Could not finalize order.' });
+                                                    }
+                                                    const invoiceItems = cart.map(item => ({
+                                                        id: item.id,
+                                                        productName: item.productName,
+                                                        price: item.price,
+                                                        quantity: item.quantity,
+                                                        subtotal: Number(item.price) * item.quantity,
+                                                        image: item.image
+                                                    }));
+                                                    const total = invoiceItems.reduce((sum, item) => sum + item.subtotal, 0);
+                                                    Cart.clearCart(userId, () => {
+                                                        delete req.session.walletAppliedAmount;
+                                                        delete req.session.cartDiscount;
+                                                        delete req.session.netsPaidAmount;
+                                                        delete req.session.netsPaidTxnRef;
+                                                        delete req.session.netsTxnRetrievalRef;
+                                                        delete req.session.netsCartTotal;
+                                                        const netTotal = Number(Math.max(0, total - discountAmount).toFixed(2));
+                                                        req.session.lastInvoice = {
+                                                            orderId: order.orderId,
+                                                            items: invoiceItems,
+                                                            total,
+                                                            discountAmount,
+                                                            discountCode: req.session.cartDiscount && req.session.cartDiscount.code,
+                                                            payments,
+                                                            netTotal,
+                                                            purchasedAt: new Date()
+                                                        };
+                                                        res.json({ success: true, orderId: order.orderId });
+                                                    });
+                                                });
+                                            });
                                         });
                                     });
                                 });

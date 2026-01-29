@@ -93,12 +93,10 @@ const discountCodeController = {
             const finalTotal = Math.max(0, subtotal - discountValue);
 
             req.session.cartDiscount = {
+                id: code.id,
                 code: code.code,
                 amount: Number(discountValue.toFixed(2))
             };
-
-            // Decrement use (best-effort)
-            DiscountCodes.decrementUse(code.id, () => {});
 
             return res.json({
                 success: true,

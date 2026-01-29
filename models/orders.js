@@ -44,7 +44,7 @@ const Orders = {
         const sql = `
             SELECT o.id, o.users_id AS user_id, o.total, o.created_at,
                    oi.id AS order_item_id, oi.product_id, oi.product_name, oi.price, oi.quantity, oi.image,
-                   r.id AS refund_id, r.status AS refund_status, r.reason AS refund_reason, r.refund_amount
+                   r.id AS refund_id, r.status AS refund_status, r.reason AS refund_reason, r.refund_amount, r.payment_method
             FROM orders o
             JOIN order_items oi ON oi.order_id = o.id
             LEFT JOIN refunds r ON r.order_item_id = oi.id
@@ -79,7 +79,8 @@ const Orders = {
                     refundId: r.refund_id,
                     refundStatus: r.refund_status,
                     refundReason: r.refund_reason,
-                    refundAmount: r.refund_amount
+                    refundAmount: r.refund_amount,
+                    refundPaymentMethod: r.payment_method
                 });
             });
 
@@ -114,7 +115,7 @@ const Orders = {
         const sql = `
             SELECT o.id, o.users_id AS user_id, o.total, o.created_at,
                    oi.id AS order_item_id, oi.product_id, oi.product_name, oi.price, oi.quantity, oi.image,
-                   r.id AS refund_id, r.status AS refund_status, r.reason AS refund_reason, r.refund_amount
+                   r.id AS refund_id, r.status AS refund_status, r.reason AS refund_reason, r.refund_amount, r.payment_method
             FROM orders o
             JOIN order_items oi ON oi.order_id = o.id
             LEFT JOIN refunds r ON r.order_item_id = oi.id
@@ -149,7 +150,8 @@ const Orders = {
                     refundId: r.refund_id,
                     refundStatus: r.refund_status,
                     refundReason: r.refund_reason,
-                    refundAmount: r.refund_amount
+                    refundAmount: r.refund_amount,
+                    refundPaymentMethod: r.payment_method
                 });
             });
 

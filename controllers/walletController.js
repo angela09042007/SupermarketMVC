@@ -15,6 +15,13 @@ function getCartTotal(cart) {
     return cart.reduce((sum, item) => sum + Number(item.price) * item.quantity, 0);
 }
 
+
+function resolveCartDiscount(req, cartTotal) {
+    const discount = req.session.cartDiscount && Number(req.session.cartDiscount.amount);
+    if (!Number.isFinite(discount) || discount <= 0) return 0;
+    return Number(Math.min(discount, cartTotal).toFixed(2));
+}
+
 const walletController = {
     view(req, res) {
         const userId = req.session.user && req.session.user.id;
@@ -62,6 +69,8 @@ const walletController = {
                 req.flash('cartError', 'Your cart is empty.');
                 return res.redirect('/cart');
             }
+            const discountAmount = resolveCartDiscount(req, cartTotal);
+            const discountedTotal = Number(Math.max(0, cartTotal - discountAmount).toFixed(2));
 
             Wallets.getOrCreate(userId, (walletErr, wallet) => {
                 if (walletErr) {
@@ -69,7 +78,7 @@ const walletController = {
                     return res.redirect('/cart');
                 }
                 const balance = wallet ? Number(wallet.balance) : 0;
-                const maxApply = Math.min(balance, cartTotal);
+                const maxApply = Math.min(balance, discountedTotal);
                 const applyAmount = requestedAmount ? Math.min(requestedAmount, maxApply) : maxApply;
 
                 if (!applyAmount || applyAmount <= 0) {
@@ -108,17 +117,19 @@ const walletController = {
                 req.flash('cartError', 'Your cart is empty.');
                 return res.redirect('/cart');
             }
+            const discountAmount = resolveCartDiscount(req, cartTotal);
+            const discountedTotal = Number(Math.max(0, cartTotal - discountAmount).toFixed(2));
             Wallets.getOrCreate(userId, (walletErr, wallet) => {
                 if (walletErr) {
                     req.flash('cartError', 'Could not load wallet.');
                     return res.redirect('/cart');
                 }
                 const balance = wallet ? Number(wallet.balance) : 0;
-                if (balance < cartTotal) {
+                if (balance < discountedTotal) {
                     req.flash('cartError', 'Wallet balance is not enough to cover this order.');
                     return res.redirect('/cart');
                 }
-                req.session.walletAppliedAmount = Number(cartTotal.toFixed(2));
+                req.session.walletAppliedAmount = Number(discountedTotal.toFixed(2));
                 return cartController.checkout(req, res);
             });
         });
